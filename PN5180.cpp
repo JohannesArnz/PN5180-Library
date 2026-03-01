@@ -699,7 +699,7 @@ bool PN5180::transceiveCommand(uint8_t *sendBuffer, size_t sendBufferLen, uint8_
   // 0.
   unsigned long startedWaiting = millis();
   while (LOW != digitalRead(PN5180_BUSY)) {
-	  delay(1);
+	  delayMicroseconds(10);
 	  if (millis() - startedWaiting > commandTimeout) {
 		  PN5180DEBUG("*** ERROR: transceiveCommand timeout (send/0)");
 		  PN5180_SPI.endTransaction();
@@ -709,13 +709,13 @@ bool PN5180::transceiveCommand(uint8_t *sendBuffer, size_t sendBufferLen, uint8_
 	  };
   }; // wait until busy is low
   // 1.
-  digitalWrite(PN5180_NSS, LOW); delay(1);
+  digitalWrite(PN5180_NSS, LOW); delayMicroseconds(2);
   // 2.
   PN5180_SPI.transfer((uint8_t*)sendBuffer, sendBufferLen);  
   // 3.
   startedWaiting = millis();
   while (HIGH != digitalRead(PN5180_BUSY)) {
-	  delay(1);
+	  delayMicroseconds(10);
 	  if (millis() - startedWaiting > commandTimeout) {
 		  PN5180DEBUG("*** ERROR: transceiveCommand timeout (send/3)");
 		  PN5180_SPI.endTransaction();
@@ -725,11 +725,11 @@ bool PN5180::transceiveCommand(uint8_t *sendBuffer, size_t sendBufferLen, uint8_
 	  };
   }; // wait until busy is high
   // 4.
-  digitalWrite(PN5180_NSS, HIGH); delay(1);
+  digitalWrite(PN5180_NSS, HIGH); delayMicroseconds(2);
   // 5.
   startedWaiting = millis();
   while (LOW != digitalRead(PN5180_BUSY)) {
-	  delay(1);
+	  delayMicroseconds(10);
 	  if (millis() - startedWaiting > commandTimeout) {
 		  PN5180DEBUG("*** ERROR: transceiveCommand timeout (send/5)");
 		  PN5180_SPI.endTransaction();
@@ -756,7 +756,7 @@ bool PN5180::transceiveCommand(uint8_t *sendBuffer, size_t sendBufferLen, uint8_
   // 3.
   startedWaiting = millis(); //delay(1);
   while (HIGH != digitalRead(PN5180_BUSY)) {
-	  delay(1);
+	  delayMicroseconds(10);
 	  if (millis() - startedWaiting > commandTimeout) {
 		  PN5180DEBUG("*** ERROR: transceiveCommand timeout (receive/3)");
 		  PN5180_SPI.endTransaction();
@@ -770,7 +770,7 @@ bool PN5180::transceiveCommand(uint8_t *sendBuffer, size_t sendBufferLen, uint8_
   // 5.
   startedWaiting = millis();
   while (LOW != digitalRead(PN5180_BUSY)) {
-	  delay(1);
+	  delayMicroseconds(10);
 	  if (millis() - startedWaiting > commandTimeout) {
 		  PN5180DEBUG("*** ERROR: transceiveCommand timeout (receive/5)");
 		  PN5180_SPI.endTransaction();

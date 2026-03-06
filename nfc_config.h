@@ -11,44 +11,13 @@
 // Die #ifndef-Guards sorgen dafür, dass deine Werte Vorrang
 // vor den Defaults hier haben.
 //
-// Beispiel für eine projektspezifische nfc_config.h:
-//   #ifndef NFC_CONFIG_H
-//   #define NFC_CONFIG_H
-//   #define PN5180_NSS_PIN  5
-//   #define PN5180_BUSY_PIN 16
-//   #define PN5180_RST_PIN  17
-//   #define REMOVAL_THRESHOLD 5
-//   #endif
+// Pin-Konfiguration gehört NICHT in diese Datei — Pins sind
+// board-spezifisch und werden im Projekt definiert (z.B. in
+// einer eigenen pin_config.h oder direkt im Code).
 // ============================================================
 
 #ifndef NFC_CONFIG_H
 #define NFC_CONFIG_H
-
-// ============================================================
-// Pin-Konfiguration (ESP32-S3 Defaults)
-// ============================================================
-#ifndef SPI_MISO_PIN
-#define SPI_MISO_PIN      37
-#endif
-#ifndef SPI_MOSI_PIN
-#define SPI_MOSI_PIN      35
-#endif
-#ifndef SPI_SCK_PIN
-#define SPI_SCK_PIN       36
-#endif
-
-#ifndef PN5180_NSS_PIN
-#define PN5180_NSS_PIN    34
-#endif
-#ifndef PN5180_BUSY_PIN
-#define PN5180_BUSY_PIN   38
-#endif
-#ifndef PN5180_RST_PIN
-#define PN5180_RST_PIN    33
-#endif
-#ifndef PN5180_IRQ_PIN
-#define PN5180_IRQ_PIN    39
-#endif
 
 // ============================================================
 // Polling-Parameter

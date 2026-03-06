@@ -22,16 +22,29 @@
 #include <PN5180.h>
 #include <PN5180ISO14443.h>
 
-// Pin and polling defaults come from nfc_config.h (included by the library).
-// To override, create your own nfc_config.h in your project's include/ folder
-// and define only the values you want to change. For example:
-//
-//   #ifndef NFC_CONFIG_H
-//   #define NFC_CONFIG_H
-//   #define PN5180_NSS_PIN  5
-//   #define PN5180_BUSY_PIN 16
-//   #define PN5180_RST_PIN  17
-//   #endif
+// Polling and RF defaults come from nfc_config.h (included by the library).
+// To override NFC settings, create your own nfc_config.h in your project's
+// include/ folder and define only the values you want to change.
+
+// ============================================================
+// Pin Configuration — adjust for your board!
+// ============================================================
+#if defined(ARDUINO_ARCH_ESP32)
+  // ESP32 / ESP32-S3 example pins
+  #define SPI_MISO   19
+  #define SPI_MOSI   23
+  #define SPI_SCK    18
+  #define NFC_NSS    16
+  #define NFC_BUSY    5
+  #define NFC_RST    17
+#elif defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_NANO)
+  // Arduino Uno/Mega/Nano — uses default SPI pins
+  #define NFC_NSS    10
+  #define NFC_BUSY    9
+  #define NFC_RST     7
+#else
+  #error "Please define your pin configuration here!"
+#endif
 
 // ============================================================
 // Setup
@@ -39,9 +52,9 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
   SPIClass hspi(FSPI);
-  PN5180ISO14443 nfc(PN5180_NSS_PIN, PN5180_BUSY_PIN, PN5180_RST_PIN, hspi);
+  PN5180ISO14443 nfc(NFC_NSS, NFC_BUSY, NFC_RST, hspi);
 #else
-  PN5180ISO14443 nfc(PN5180_NSS_PIN, PN5180_BUSY_PIN, PN5180_RST_PIN);
+  PN5180ISO14443 nfc(NFC_NSS, NFC_BUSY, NFC_RST);
 #endif
 
 void setup() {
@@ -54,7 +67,7 @@ void setup() {
 
   // Initialize SPI bus (must happen before nfc.init())
   #if defined(ARDUINO_ARCH_ESP32)
-    hspi.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, PN5180_NSS_PIN);
+    hspi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, NFC_NSS);
   #endif
 
   // One-call init: reset, configure all parameters from nfc_config.h,

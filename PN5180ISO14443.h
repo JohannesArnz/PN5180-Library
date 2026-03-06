@@ -46,6 +46,11 @@ private:
   uint8_t _consecutiveFails;
   uint8_t _removalThreshold;   // consecutive fails before REMOVED (default 5)
   uint8_t _rfRecoveryInterval; // RF reset every N consecutive fails (default 30)
+  void (*_onRfRecovery)(void); // optional callback on RF recovery
+  unsigned long _lastRefreshMs;        // millis() of last RF refresh
+  unsigned long _rfRefreshIntervalMs;  // soft RF refresh period while card present (0=off)
+  unsigned long _lastRecoveryMs;       // millis() of last RF recovery
+  unsigned long _rfRecoveryCooldownMs; // min ms between recoveries (0=off)
 
 public:
   // Mifare TypeA - low level
@@ -75,6 +80,9 @@ public:
   // Configuration
   void setRemovalThreshold(uint8_t n) { _removalThreshold = n; }
   void setRfRecoveryInterval(uint8_t n) { _rfRecoveryInterval = n; }
+  void onRfRecovery(void (*cb)(void)) { _onRfRecovery = cb; }
+  void setRfRefreshInterval(unsigned long ms) { _rfRefreshIntervalMs = ms; }
+  void setRfRecoveryCooldown(unsigned long ms) { _rfRecoveryCooldownMs = ms; }
   void resetCardState();
 
   /*

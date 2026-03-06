@@ -36,6 +36,8 @@
 #define TX_CONFIG           (0x18)
 #define CRC_TX_CONFIG       (0x19)
 #define RF_STATUS           (0x1d)
+#define RF_CONTROL_TX_CLK   (0x21)  // Transmitter clock config (modulation, inversion, ALM, DPLL)
+#define RF_CONTROL_RX       (0x22)  // Receiver control, bits 1:0 = RX_GAIN
 #define SYSTEM_STATUS       (0x24)
 #define TEMP_CONTROL        (0x25)
 #define AGC_REF_CONFIG      (0x26)
@@ -97,6 +99,14 @@ private:
   SPISettings SPI_SETTINGS;
   static uint8_t readBufferStatic16[16];
   uint8_t* readBufferDynamic508 = NULL;
+
+protected:
+  uint8_t  _rxGainValue;   // RX_GAIN bits 1:0 in RF_CONTROL_RX (0=33dB, 1=40dB, 2=50dB, 3=57dB)
+  bool     _rxGainSet;
+  uint32_t _txClkValue;    // RF_CONTROL_TX_CLK full 32-bit register value
+  bool     _txClkSet;
+  uint32_t _agcRefValue;   // AGC_REF_CONFIG (0x26) fixed override value
+  bool     _agcRefSet;
 public:
   PN5180(uint8_t SSpin, uint8_t BUSYpin, uint8_t RSTpin, SPIClass& spi=SPI);
   ~PN5180();
@@ -156,6 +166,22 @@ public:
   bool clearIRQStatus(uint32_t irqMask);
 
   PN5180TransceiveStat getTransceiveState();
+
+  // RX Gain (RF_CONTROL_RX register 0x22, bits 1:0)
+  // 0=33dB, 1=40dB, 2=50dB, 3=57dB
+  void setRxGain(uint8_t gain);
+  bool applyRxGain();
+
+  // TX Clock Config (RF_CONTROL_TX_CLK register 0x21)
+  // Typical: 0x74 (ISO14443A-106), 0x82 (A-212..848), 0x8E (B/FeliCa)
+  void setTxClk(uint32_t value);
+  bool applyTxClk();
+
+  // AGC Reference Config (AGC_REF_CONFIG register 0x26)
+  // Fixed mode: overrides automatic AGC with a constant value.
+  // Prevents AGC drift with large/close tags.
+  void setAgcRef(uint32_t value);
+  bool applyAgcRef();
 
   /*
    * Private methods, called within an SPI transaction

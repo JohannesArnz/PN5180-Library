@@ -30,6 +30,11 @@ PN5180ISO14443::PN5180ISO14443(uint8_t SSpin, uint8_t BUSYpin, uint8_t RSTpin, S
   _consecutiveFails = 0;
   _removalThreshold = 5;
   _rfRecoveryInterval = 30;
+  _onRfRecovery = nullptr;
+  _lastRefreshMs = 0;
+  _rfRefreshIntervalMs = 0;
+  _lastRecoveryMs = 0;
+  _rfRecoveryCooldownMs = 0;
   memset(_lastUID, 0, sizeof(_lastUID));
 }
 
@@ -52,6 +57,13 @@ bool PN5180ISO14443::setupRF() {
     PN5180DEBUG_EXIT;
     return false;
   }
+
+  // Re-apply RX gain override (loadRFConfig resets RF_CONTROL_RX)
+  applyRxGain();
+  // Re-apply TX clock override (loadRFConfig resets RF_CONTROL_TX_CLK)
+  applyTxClk();
+  // Re-apply AGC reference override (loadRFConfig resets AGC_REF_CONFIG)
+  applyAgcRef();
   
   PN5180DEBUG_EXIT;
   return true;
@@ -756,6 +768,7 @@ CardEvent PN5180ISO14443::pollCard(uint8_t *uid, uint8_t *uidLen) {
 		if (_cardState == 0) {
 			// Transition: ABSENT -> PRESENT (new card)
 			_cardState = 1;
+			_lastRefreshMs = millis();
 			memcpy(_lastUID, uid, len);
 			_lastUIDLen = len;
 			return CARD_EVENT_NEW;
@@ -769,10 +782,22 @@ CardEvent PN5180ISO14443::pollCard(uint8_t *uid, uint8_t *uidLen) {
 			}
 			if (!same) {
 				// Different card
+				_lastRefreshMs = millis();
 				memcpy(_lastUID, uid, len);
 				_lastUIDLen = len;
 				return CARD_EVENT_CHANGED;
 			}
+
+			// Soft RF refresh: reload RF config periodically to reset AGC drift
+			if (_rfRefreshIntervalMs > 0 && (millis() - _lastRefreshMs >= _rfRefreshIntervalMs)) {
+				loadRFConfig(0x00, 0x80);
+				setRF_on();
+				applyRxGain();
+				applyTxClk();
+				applyAgcRef();
+				_lastRefreshMs = millis();
+			}
+
 			return CARD_EVENT_PRESENT;
 		}
 
@@ -809,11 +834,16 @@ CardEvent PN5180ISO14443::pollCard(uint8_t *uid, uint8_t *uidLen) {
 			return CARD_EVENT_PRESENT;
 		}
 
-		// RF recovery after many consecutive fails
+		// RF recovery after many consecutive fails (with cooldown)
 		if (_rfRecoveryInterval > 0 && _consecutiveFails > 0 
 		    && (_consecutiveFails % _rfRecoveryInterval) == 0) {
-			reset();
-			setupRF();
+			unsigned long now = millis();
+			if (_rfRecoveryCooldownMs == 0 || (now - _lastRecoveryMs >= _rfRecoveryCooldownMs)) {
+				if (_onRfRecovery) _onRfRecovery();
+				reset();
+				setupRF();
+				_lastRecoveryMs = now;
+			}
 		}
 
 		return CARD_EVENT_NONE;

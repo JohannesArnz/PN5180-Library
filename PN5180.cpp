@@ -57,6 +57,12 @@ PN5180::PN5180(uint8_t SSpin, uint8_t BUSYpin, uint8_t RSTpin, SPIClass& spi) :
    */
   // Settings for PN5180: 7Mbps, MSB first, SPI_MODE0 (CPOL=0, CPHA=0)
   SPI_SETTINGS = SPISettings(7000000, MSBFIRST, SPI_MODE0);
+  _rxGainValue = 0;
+  _rxGainSet = false;
+  _txClkValue = 0;
+  _txClkSet = false;
+  _agcRefValue = 0;
+  _agcRefSet = false;
 }
 
 PN5180::~PN5180() {
@@ -563,6 +569,83 @@ int16_t PN5180::mifareAuthenticate(uint8_t blockNo, const uint8_t *key, uint8_t 
  * ->0D              ISO 15693 ASK100  26        8D              ISO 15693   26
  *   0E              ISO 15693 ASK10   26        8E              ISO 15693   53
  */
+/*
+ * setRxGain - Set receiver gain via RF_CONTROL_RX register (0x22), bits 1:0.
+ *   0 = 33 dB, 1 = 40 dB, 2 = 50 dB, 3 = 57 dB
+ * The value is stored and re-applied after every loadRFConfig/setupRF call.
+ */
+void PN5180::setRxGain(uint8_t gain) {
+  _rxGainValue = gain & 0x03;
+  _rxGainSet = true;
+  applyRxGain();
+}
+
+/*
+ * applyRxGain - Write stored RX gain to RF_CONTROL_RX register bits 1:0.
+ * Called automatically by setupRF() and setRxGain().
+ * Uses AND mask to clear bits 1:0, then OR mask to set the new value.
+ * Returns false if no gain override is configured.
+ */
+bool PN5180::applyRxGain() {
+  if (!_rxGainSet) return false;
+  PN5180DEBUG(F("Apply RX Gain: "));
+  PN5180DEBUG(_rxGainValue);
+  PN5180DEBUG_PRINTLN(F(" dB-Stufe"));
+  if (!writeRegisterWithAndMask(RF_CONTROL_RX, 0xFFFFFFFC)) return false;  // Clear bits 1:0
+  if (_rxGainValue > 0) {
+    return writeRegisterWithOrMask(RF_CONTROL_RX, (uint32_t)_rxGainValue); // Set bits 1:0
+  }
+  return true;
+}
+
+/*
+ * setTxClk - Set RF_CONTROL_TX_CLK register (0x21) to override TX clock config.
+ * Controls modulation mode, output inversion, ALM, DPLL.
+ * Typical values: 0x74 (ISO14443A-106), 0x82 (A-212..848), 0x8E (B/FeliCa).
+ * The value is stored and re-applied after every loadRFConfig/setupRF call.
+ */
+void PN5180::setTxClk(uint32_t value) {
+  _txClkValue = value;
+  _txClkSet = true;
+  applyTxClk();
+}
+
+/*
+ * applyTxClk - Write stored TX clock config to RF_CONTROL_TX_CLK register.
+ * Called automatically by setupRF() and setTxClk().
+ * Returns false if no TX CLK override is configured.
+ */
+bool PN5180::applyTxClk() {
+  if (!_txClkSet) return false;
+  PN5180DEBUG(F("Apply TX CLK: 0x"));
+  PN5180DEBUG(formatHex(_txClkValue));
+  PN5180DEBUG_PRINTLN();
+  return writeRegister(RF_CONTROL_TX_CLK, _txClkValue);
+}
+
+/*
+ * setAgcRef - Set AGC_REF_CONFIG register (0x26) to a fixed value.
+ * Overrides the automatic AGC that normally adjusts the reference
+ * dynamically. This prevents AGC drift with large/close tags.
+ *
+ * The value is stored and re-applied after every loadRFConfig/setupRF call.
+ */
+void PN5180::setAgcRef(uint32_t value) {
+  _agcRefValue = value;
+  _agcRefSet = true;
+  applyAgcRef();
+}
+
+/*
+ * applyAgcRef - Write stored AGC reference to AGC_REF_CONFIG register.
+ * Called automatically by setupRF() and setAgcRef().
+ * Returns false if no AGC override is configured.
+ */
+bool PN5180::applyAgcRef() {
+  if (!_agcRefSet) return false;
+  return writeRegister(AGC_REF_CONFIG, _agcRefValue);
+}
+
 bool PN5180::loadRFConfig(uint8_t txConf, uint8_t rxConf) {
   PN5180DEBUG(F("Load RF-Config: txConf="));
   PN5180DEBUG(formatHex(txConf));

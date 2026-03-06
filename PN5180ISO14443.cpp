@@ -995,3 +995,91 @@ bool PN5180ISO14443::readCardNumber(char *number) {
 
 	return found;
 }
+
+// ---------------------------------------------------------------------------
+// NTAG/Ultralight write support
+// ---------------------------------------------------------------------------
+
+// Detect NTAG/Ultralight tag type via Capability Container memory-size byte.
+// Card must be activated (after activateTypeA / pollCard) before calling.
+NtagType PN5180ISO14443::detectNtagType() {
+	uint8_t pageData[16];
+	// Read pages 0-3 (UID + CC)
+	if (!mifareBlockRead(0, pageData)) {
+		return NTAG_UNKNOWN;
+	}
+	// CC memory size byte is at page 3, byte 2 = pageData[14]
+	uint8_t ccMemSize = pageData[14];
+	switch (ccMemSize) {
+		case 0x12: return NTAG_213;        // 144 bytes
+		case 0x3E: return NTAG_215;        // 504 bytes
+		case 0x6D: return NTAG_216;        // 888 bytes
+		case 0x06: return NTAG_ULTRALIGHT;  // 48 bytes
+		default:   return NTAG_UNKNOWN;
+	}
+}
+
+// Write 4 bytes to a single NTAG/Ultralight page using WRITE command (0xA2).
+// This is a raw low-level function — no address validation.
+// Returns ACK byte: NTAG_ACK (0x0A) on success, NAK on failure.
+uint8_t PN5180ISO14443::ntagWritePage(uint8_t pageNo, const uint8_t *data) {
+	uint8_t cmd[6];
+	uint8_t ack = 0;
+
+	// Disable RX CRC — the 4-bit ACK has no CRC
+	writeRegisterWithAndMask(CRC_RX_CONFIG, 0xFFFFFFFE);
+
+	// Build single-phase WRITE frame: [0xA2, page, d0, d1, d2, d3]
+	cmd[0] = 0xA2;
+	cmd[1] = pageNo;
+	cmd[2] = data[0];
+	cmd[3] = data[1];
+	cmd[4] = data[2];
+	cmd[5] = data[3];
+
+	sendData(cmd, 6, 0x00);
+	delay(5);  // EEPROM write time
+
+	// Read 4-bit ACK/NAK
+	readData(1, &ack);
+
+	// Re-enable RX CRC
+	writeRegisterWithOrMask(CRC_RX_CONFIG, 0x1);
+
+	return ack;
+}
+
+// Write multiple consecutive pages with tag-type detection and address validation.
+// data must contain numPages * 4 bytes.
+// Returns NTAG_ACK (0x0A) on success, NAK code on first failure.
+uint8_t PN5180ISO14443::ntagWritePages(uint8_t startPage, const uint8_t *data, uint8_t numPages) {
+	if (numPages == 0) return NTAG_NAK_INVALID;
+
+	// Detect tag type for address validation
+	NtagType tagType = detectNtagType();
+
+	uint8_t maxPage;
+	switch (tagType) {
+		case NTAG_213:        maxPage = 0x2C; break;
+		case NTAG_215:        maxPage = 0x86; break;
+		case NTAG_216:        maxPage = 0xE6; break;
+		case NTAG_ULTRALIGHT: maxPage = 0x0F; break;
+		default:              return NTAG_NAK_INVALID;  // Unknown tag
+	}
+
+	// Validate address range (writable area starts at page 0x02)
+	if (startPage < 0x02) return NTAG_NAK_INVALID;
+	uint8_t endPage = startPage + numPages - 1;
+	if (endPage < startPage) return NTAG_NAK_INVALID;  // overflow check
+	if (endPage > maxPage) return NTAG_NAK_INVALID;
+
+	// Write pages sequentially
+	for (uint8_t i = 0; i < numPages; i++) {
+		uint8_t result = ntagWritePage(startPage + i, &data[i * 4]);
+		if (result != NTAG_ACK) {
+			return result;  // Stop on first error
+		}
+	}
+
+	return NTAG_ACK;
+}

@@ -9,6 +9,7 @@ PN5180	KEYWORD1
 PN5180ISO14443	KEYWORD1
 PN5180ISO15693	KEYWORD1
 CardEvent	KEYWORD1
+NtagType	KEYWORD1
 
 #######################################
 # Methods and Functions 
@@ -50,6 +51,9 @@ activateTypeA_fast	KEYWORD2
 isCardPresent	KEYWORD2
 mifareBlockRead	KEYWORD2
 mifareBlockWrite16	KEYWORD2
+ntagWritePage	KEYWORD2
+ntagWritePages	KEYWORD2
+detectNtagType	KEYWORD2
 mifareHalt	KEYWORD2
 resetCardState	KEYWORD2
 setRemovalThreshold	KEYWORD2

@@ -30,6 +30,20 @@ enum CardEvent : uint8_t {
   CARD_EVENT_REMOVED  = 4   // Card removed (after threshold)
 };
 
+// NTAG/Ultralight tag types detected via Capability Container byte
+enum NtagType : uint8_t {
+  NTAG_UNKNOWN    = 0,
+  NTAG_213        = 1,  // CC size 0x12, pages 0x00-0x2C
+  NTAG_215        = 2,  // CC size 0x3E, pages 0x00-0x86
+  NTAG_216        = 3,  // CC size 0x6D, pages 0x00-0xE6
+  NTAG_ULTRALIGHT = 4   // CC size 0x06, pages 0x00-0x0F
+};
+
+// NTAG WRITE response codes
+#define NTAG_ACK          0x0A  // Successful write
+#define NTAG_NAK_INVALID  0x00  // Invalid argument / out of range
+#define NTAG_NAK_EEPROM   0x05  // EEPROM write error
+
 class PN5180ISO14443 : public PN5180 {
 
 public:
@@ -60,6 +74,16 @@ public:
   bool mifareBlockRead(uint8_t blockno, uint8_t *buffer);
   uint8_t mifareBlockWrite16(uint8_t blockno, const uint8_t *buffer);
   bool mifareHalt();
+
+  // NTAG/Ultralight write API
+  // Detect tag type via Capability Container (requires card in field).
+  NtagType detectNtagType();
+  // Write 4 bytes to a single NTAG/Ultralight page (raw, no address validation).
+  // Returns NTAG_ACK (0x0A) on success, NAK code on failure.
+  uint8_t ntagWritePage(uint8_t pageNo, const uint8_t *data);
+  // Write multiple pages with automatic tag-type detection and address validation.
+  // Returns NTAG_ACK (0x0A) on success, NAK code on first failure.
+  uint8_t ntagWritePages(uint8_t startPage, const uint8_t *data, uint8_t numPages);
 
   /*
    * High-level polling API

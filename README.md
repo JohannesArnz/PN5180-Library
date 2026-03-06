@@ -377,6 +377,10 @@ Getestet mit:
 | MOSI | GPIO 35 | SPI Data In |
 | SCK | GPIO 36 | SPI Clock |
 
+## Notizen:
+
+Die blauen Breakout Boards sind bei mir meist PN5180 C2 Chips.
+
 ## Credits
 
 - **Original-Library:** [ATrappmann/PN5180-Library](https://github.com/ATrappmann/PN5180-Library)

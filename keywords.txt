@@ -40,6 +40,7 @@ getSystemInfo		KEYWORD2
 setupRF		KEYWORD2
 
 # Fast-Polling API (ISO14443)
+init	KEYWORD2
 pollCard	KEYWORD2
 readCardNumber	KEYWORD2
 readCardSerial	KEYWORD2

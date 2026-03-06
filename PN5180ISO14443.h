@@ -77,6 +77,13 @@ public:
   // Returns true if 8-digit number found, false otherwise.
   bool readCardNumber(char *number);
 
+  // One-call initialization: begin + reset + configure + clearIRQ + setupRF.
+  // Applies all settings from nfc_config.h (or project overrides).
+  // Optional callback is invoked on every RF recovery during pollCard().
+  // SPI bus must be initialized before calling this (SPI.begin()).
+  // Returns true if RF field was successfully activated.
+  bool init(void (*rfRecoveryCallback)(void) = nullptr);
+
   // Configuration
   void setRemovalThreshold(uint8_t n) { _removalThreshold = n; }
   void setRfRecoveryInterval(uint8_t n) { _rfRecoveryInterval = n; }

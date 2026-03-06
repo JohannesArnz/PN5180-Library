@@ -22,6 +22,7 @@
 #include "PN5180ISO14443.h"
 #include <PN5180.h>
 #include "Debug.h"
+#include "nfc_config.h"
 
 PN5180ISO14443::PN5180ISO14443(uint8_t SSpin, uint8_t BUSYpin, uint8_t RSTpin, SPIClass& spi) 
               : PN5180(SSpin, BUSYpin, RSTpin, spi) {
@@ -36,6 +37,42 @@ PN5180ISO14443::PN5180ISO14443(uint8_t SSpin, uint8_t BUSYpin, uint8_t RSTpin, S
   _lastRecoveryMs = 0;
   _rfRecoveryCooldownMs = 0;
   memset(_lastUID, 0, sizeof(_lastUID));
+}
+
+/*
+ * One-call initialization using nfc_config.h defaults.
+ * Handles: begin, reset, configure all parameters, clear IRQ, activate RF.
+ * SPI bus must be initialized before calling this (SPI.begin()).
+ */
+bool PN5180ISO14443::init(void (*rfRecoveryCallback)(void)) {
+  begin();
+  reset();
+
+  // Apply configuration from nfc_config.h (or project overrides)
+  commandTimeout = COMMAND_TIMEOUT_MS;
+  setRemovalThreshold(REMOVAL_THRESHOLD);
+  setRfRecoveryInterval(RF_RECOVERY_INTERVAL);
+  setRfRefreshInterval(NFC_RF_REFRESH_MS);
+  setRfRecoveryCooldown(NFC_RECOVERY_COOLDOWN_MS);
+
+  if (rfRecoveryCallback) {
+    onRfRecovery(rfRecoveryCallback);
+  }
+
+  // Register overrides (conditional via nfc_config.h)
+  #if NFC_RX_GAIN_ENABLED
+  setRxGain(NFC_RX_GAIN);
+  #endif
+  #if NFC_TX_CLK_ENABLED
+  setTxClk(NFC_TX_CLK);
+  #endif
+  #if NFC_AGC_REF_ENABLED
+  setAgcRef(NFC_AGC_REF);
+  #endif
+
+  // Clear pending IRQ flags and activate RF field
+  clearIRQStatus(0xFFFFFFFF);
+  return setupRF();
 }
 
 bool PN5180ISO14443::setupRF() {

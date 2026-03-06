@@ -161,7 +161,7 @@ public:
 public:
   void reset();
 
-  uint16_t commandTimeout = 500;
+  uint16_t commandTimeout = 20;
   uint32_t getIRQStatus();
   bool clearIRQStatus(uint32_t irqMask);
 

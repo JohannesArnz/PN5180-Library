@@ -22,41 +22,16 @@
 #include <PN5180.h>
 #include <PN5180ISO14443.h>
 
-// ============================================================
-// Pin Configuration — adjust for your board!
-// ============================================================
-#if defined(ARDUINO_ARCH_ESP32)
-  // ESP32 / ESP32-S3 example pins
-  #define SPI_MISO   19
-  #define SPI_MOSI   23
-  #define SPI_SCK    18
-  #define NFC_NSS    16
-  #define NFC_BUSY    5
-  #define NFC_RST    17
-#elif defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_NANO)
-  // Arduino Uno/Mega/Nano — uses default SPI pins
-  #define NFC_NSS    10
-  #define NFC_BUSY    9
-  #define NFC_RST     7
-#else
-  #error "Please define your pin configuration here!"
-#endif
-
-// ============================================================
-// Polling Parameters
-// ============================================================
-
-// BUSY-wait timeout in ms (default: 500). Lower = faster empty-field scans.
-// 20ms is optimal for fast polling (REQA->ATQA takes <5ms).
-#define COMMAND_TIMEOUT_MS   20
-
-// Consecutive empty scans before CARD_EVENT_REMOVED is reported.
-// Higher = more robust against brief RF glitches, but slower removal detection.
-#define REMOVAL_THRESHOLD     5
-
-// After this many consecutive fails, RF is reset (loadRFConfig + setRF_on).
-// Set to 0 to disable. Useful if the PN5180 loses RF lock.
-#define RF_RECOVERY_INTERVAL 30
+// Pin and polling defaults come from nfc_config.h (included by the library).
+// To override, create your own nfc_config.h in your project's include/ folder
+// and define only the values you want to change. For example:
+//
+//   #ifndef NFC_CONFIG_H
+//   #define NFC_CONFIG_H
+//   #define PN5180_NSS_PIN  5
+//   #define PN5180_BUSY_PIN 16
+//   #define PN5180_RST_PIN  17
+//   #endif
 
 // ============================================================
 // Setup
@@ -64,9 +39,9 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
   SPIClass hspi(FSPI);
-  PN5180ISO14443 nfc(NFC_NSS, NFC_BUSY, NFC_RST, hspi);
+  PN5180ISO14443 nfc(PN5180_NSS_PIN, PN5180_BUSY_PIN, PN5180_RST_PIN, hspi);
 #else
-  PN5180ISO14443 nfc(NFC_NSS, NFC_BUSY, NFC_RST);
+  PN5180ISO14443 nfc(PN5180_NSS_PIN, PN5180_BUSY_PIN, PN5180_RST_PIN);
 #endif
 
 void setup() {
@@ -77,13 +52,20 @@ void setup() {
   Serial.println(F("PN5180 Fast-Polling Example"));
   Serial.println(F("=================================="));
 
-  // Initialize SPI
+  // Initialize SPI bus (must happen before nfc.init())
   #if defined(ARDUINO_ARCH_ESP32)
-    hspi.begin(SPI_SCK, SPI_MISO, SPI_MOSI, NFC_NSS);
+    hspi.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, PN5180_NSS_PIN);
   #endif
 
-  nfc.begin();
-  nfc.reset();
+  // One-call init: reset, configure all parameters from nfc_config.h,
+  // apply register overrides, clear IRQ, activate RF field.
+  // Optional: pass a callback that fires on every RF recovery.
+  if (!nfc.init([]() {
+    Serial.println(F("  [RF Recovery triggered]"));
+  })) {
+    Serial.println(F("ERROR: NFC init failed!"));
+    while (1) delay(1000);
+  }
 
   // Print PN5180 info
   uint8_t productVersion[2];
@@ -92,24 +74,6 @@ void setup() {
   Serial.print(productVersion[1]);
   Serial.print(".");
   Serial.println(productVersion[0]);
-
-  // Configure fast polling parameters
-  nfc.commandTimeout = COMMAND_TIMEOUT_MS;
-  nfc.setRemovalThreshold(REMOVAL_THRESHOLD);
-  nfc.setRfRecoveryInterval(RF_RECOVERY_INTERVAL);
-
-  // Optional: Register overrides for large tags (35mm+)
-  // nfc.setRxGain(2);        // 50 dB (0=33dB, 1=40dB, 2=50dB, 3=57dB)
-  // nfc.setTxClk(0x7C);      // Half-field for large tags (default: 0x74)
-
-  // Optional: RF recovery callback for logging
-  nfc.onRfRecovery([]() {
-    Serial.println(F("  [RF Recovery triggered]"));
-  });
-
-  // Start RF field
-  nfc.clearIRQStatus(0xFFFFFFFF);
-  nfc.setupRF();
 
   Serial.println(F("Ready! Place a card..."));
   Serial.println();
